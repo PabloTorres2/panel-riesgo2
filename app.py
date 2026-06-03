@@ -35,7 +35,7 @@ def load_mock_data():
         'PC1_Estres': np.random.normal(-1, 2, n_focos),
         'anomalia_hum': np.random.normal(-5, 8, n_focos),
         'temp_max': np.random.normal(30, 5, n_focos),
-        'Episodio_ID': np.random.choice([f"EP-{str(i).zfill(3)}" for i in range(1, 25)], n_focos) # 24 episodios simulados
+        'Episodio_ID': np.random.choice([f"EP-{str(i).zfill(3)}" for i in range(1, 25)], n_focos)
     })
     
     # 2. Desacople del Motor Lógico
@@ -63,11 +63,7 @@ def load_mock_data():
     df_focos['Score_FRP'] = df_focos.apply(calc_intensidad, axis=1)
     df_focos['IPO_Total'] = df_focos['Score_Contexto'] + df_focos['Score_FRP']
     
-    # Categorización 2D
-    df_focos['Cat_Contexto'] = pd.cut(df_focos['Score_Contexto'], bins=[-1, 3, 7, 13], labels=['Benigno', 'Moderado', 'Severo'])
-    df_focos['Cat_FRP'] = pd.cut(df_focos['frp'], bins=[-1, 10, 20, np.inf], labels=['Bajo', 'Medio', 'Alto'])
-    
-    # Lógica de Color (Basada en Matriz 2D simplificada)
+    # Lógica de Color para el mapa
     def asignar_color(row):
         if row['IPO_Total'] >= 13: return [211, 47, 47]      # Rojo (Crítico)
         elif row['IPO_Total'] >= 8: return [251, 192, 45]    # Amarillo (Alerta)
@@ -105,7 +101,7 @@ c4.markdown(f"<div class='metric-box'><h4>Última Actualización</h4><h2>{dateti
 col_mapa, col_panel = st.columns([2.5, 1.5])
 
 with col_mapa:
-    # carto-darkmatter no requiere API key de Mapbox
+    # carto-darkmatter o 'dark' elimina la necesidad de token de Mapbox
     view_state = pdk.ViewState(latitude=-32.5, longitude=-56.0, zoom=5.8)
     layer = pdk.Layer(
         "ScatterplotLayer",
@@ -145,19 +141,23 @@ with col_panel:
             
             st.markdown("---")
             st.markdown("#### 🌍 CONTEXTO AMBIENTAL")
+            pc1_pt = 5 if foco['PC1_Estres'] <= -3.62 else 3 if foco['PC1_Estres'] <= -2.25 else 1 if foco['PC1_Estres'] <= -0.50 else 0
+            hum_pt = 4 if foco['anomalia_hum'] <= -12.7 else 2 if foco['anomalia_hum'] <= -6.5 else 1 if foco['anomalia_hum'] <= 0 else 0
+            temp_pt = 3 if foco['temp_max'] >= 36.5 else 2 if foco['temp_max'] >= 31.5 else 0
+            
             st.code(f"""
-PC1 Estrés:   {foco['PC1_Estres']:>6.2f}  (+{5 if foco['PC1_Estres'] <= -3.62 else 3 if foco['PC1_Estres'] <= -2.25 else 1 if foco['PC1_Estres'] <= -0.50 else 0})
-Anom Humedad: {foco['anomalia_hum']:>6.1f}% (+{4 if foco['anomalia_hum'] <= -12.7 else 2 if foco['anomalia_hum'] <= -6.5 else 1 if foco['anomalia_hum'] <= 0 else 0})
-Temp Máxima:  {foco['temp_max']:>6.1f}°C (+{3 if foco['temp_max'] >= 36.5 else 2 if foco['temp_max'] >= 31.5 else 0})
+PC1 Estrés:   {foco['PC1_Estres']:>6.2f}  (+{pc1_pt})
+Anom Humedad: {foco['anomalia_hum']:>6.1f}% (+{hum_pt})
+Temp Máxima:  {foco['temp_max']:>6.1f}°C (+{temp_pt})
 
-Subtotal Contexto: {int(foco['Score_Contexto'])}/12 ({foco['Cat_Contexto']})
+Subtotal Contexto: {int(foco['Score_Contexto'])}/12
             """)
             
             st.markdown("#### 🔥 INTENSIDAD OBSERVADA")
             st.code(f"""
 FRP Detectado: {foco['frp']:>5.1f} MW (+{int(foco['Score_FRP'])})
 
-Subtotal Intensidad: {int(foco['Score_FRP'])}/5 ({foco['Cat_FRP']})
+Subtotal Intensidad: {int(foco['Score_FRP'])}/5
             """)
             
             st.markdown(f"### 🎯 TOTAL IPO v2: {int(foco['IPO_Total'])}/17")
